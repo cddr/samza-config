@@ -15,6 +15,10 @@ validating and exporting configuration from our code, together with a reusable
 library containing other generally useful stuff like custom serdes and a kafka
 system builder.
 
+The validation is pretty basic right now but one cool thing it does is check
+that each factory listed in the configuration points to a class that implements
+the required interface.
+
 ## Example Usage
 
 Given the following file in src/examples/null-job.clj
