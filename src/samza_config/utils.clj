@@ -13,6 +13,7 @@
 ;; Factories
 
 (def thread-job-factory {:class (.getName ThreadJobFactory)})
+(def process-job-factory {:class (.getName ProcessJobFactory)})
 (def map-serde-factory {:class (.getName MapSerdeFactory)})
 (def uuid-serde-factory {:class (.getName UUIDSerdeFactory)})
 (def kafka-system-factory {:class (.getName KafkaSystemFactory)})
@@ -22,8 +23,8 @@
 
 (defn kafka-system [env]
   {:samza {:factory kafka-system-factory}
-   :key {:serde "uuid"}
-   :msg {:serde "map"}
+   :key {:serde :uuid}
+   :msg {:serde :map}
    :consumer {:zookeeper {:connect (str/join ":" [(env :zk-host)
                                                   (env :zk-port)])}}
    :producer {:bootstrap {:servers (str/join ":" [(env :kafka-host)
