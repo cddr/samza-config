@@ -32,7 +32,7 @@
     (is (valid? {:job {:factory thread-job-factory
                        :name "hello-world"}
 
-                 :task {:class (task-name MockStreamTask)
+                 :task {:class (class-name MockStreamTask)
                         :inputs {"example-system" "example-stream"}}
 
                  :serializers {:registry
