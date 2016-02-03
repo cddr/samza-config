@@ -4,23 +4,34 @@
    [clojure.string :as str]
    [samza-config.schema :as schema]
    [clojure.java.io :as io :refer [file]]
-   [clojure.tools.cli :refer [parse-opts]]))
+   [clojure.tools.cli :refer [parse-opts]]
+   [org.apache.samza.task StreamTask InitableTask]))
 
-(defn flatten-map
-  "Flattens a nested map"
-  ([form]
-     (into {} (flatten-map form nil)))
-  ([form pre]
-     (mapcat (fn [[k v]]
-               (let [prefix (if pre
-                              (conj pre k)
-                              [k])]
-                 (if (map? v)
-                   (flatten-map v prefix)
-                   [[prefix v]])))
-             form)))
+(def ^:dynamic *task-store-name*)
+(def ^:dynamic *task-output*)
 
-(def samza-jobs (atom {}))
+(defn stateful-task
+  "Makes a stateful samza task out of the specified `step` function. Each
+   time samza invokes the StreamTask's `process` method, we call the step
+   function and pass in the task's local storage, and the task's output
+   constructors"
+  [step]
+  (let [state        (atom {})
+        store-name   *task-store-name*
+        output       *task-output*]
+    (reify
+      InitableTask
+      (init [this config context]
+        (swap! state assoc
+               :config config
+               :context context))
+
+      StreamTask
+      (process [this envelope collector coordinator]
+        (let [store (.getStore (:context state) store-name)
+              msg (bean envelope)]
+          (step store msg output))))))
+
 
 (defmacro defsamza [samza-name m]
   `(let [samza-name# ~(str (name samza-name))]

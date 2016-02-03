@@ -40,7 +40,6 @@
   {:samza {:factory kafka-system-factory}
    :key {:serde :uuid}
    :msg {:serde :map}
-   :consumer {:zookeeper {:connect (str/join ":" [(env :zk-host)
-                                                  (env :zk-port)])}}
+   :consumer {:zookeeper {:connect "#=(str/join \":\" [(env :zk-host) (env :zk-port)]"}}
    :producer {:bootstrap {:servers (str/join ":" [(env :kafka-host)
                                                   (env :kafka-port)])}}})
