@@ -1,91 +1,67 @@
 # samza-config
 
-Programmable samza configuration
+Samza jobs. In idiomatic Clojure
 
 ## Rationale
 
-The samza configuration language is very powerful. But often, computations
-are built of several jobs. The nature of samza is that these jobs are
-completely independent of one another. But it seems to me that having a way
-to dynamcally generate samza configurations seems to be a pre-requisite for
-building higher level operators that can "compose" (everybody drink) samza jobs.
+Samza takes care of a lot of quite difficult problems and while it would be
+fun to solve them in Clojure, it would take a while and we all have business
+value to deliver. We want to allow app developers to focus on the business
+logic of their app.
 
-While we wait for these higher level  operators, we can have a nice way of
-validating and exporting configuration from our code, together with a reusable
-library containing other generally useful stuff like custom serdes and a kafka
-system builder.
+Ideally, you could write a plain old clojure function, and somehow arrange
+for Samza to invoke it on each new message it is interested in. The intention
+of this project is to provide the "somehow arrange for" part.
 
-The validation is pretty basic right now but one cool thing it does is check
-that each factory listed in the configuration points to a class that implements
-the required interface.
+## Implementation
 
-## Example Usage
+We do this by implementing a few key features
 
-Given the following file in src/examples/null-job.clj
+ * A suite of functions that take a function as input, and use `reify` to
+   build an implementation of the corresponding samza interface
 
-```
-(ns example.null-job
-  (:require
-   [samza-config.core :refer [defsamza]]
-   [samza-config.utils :refer [thread-job-factory
-                               uuid-serde-factory
-                               map-serde-factory
-                               task-name
-                               kafka-system]])
-  (:import
-   [org.apache.samza.job StreamJobFactory]
-   [org.apache.samza.task StreamTask]))
+ * A `defjob` macro that acts as a helper for
 
-(defrecord NullStreamTask []
-  StreamTask
-  (process [this envelope collector coordinator]))
-
-(defsamza mock-job
-  {:job {:factory thread-job-factory}
-
-   :task {:class (task-name NullStreamTask)
-          :inputs {"example-system" "example-stream"}}
-
-   :serializers {:registry
-                 {:uuid uuid-serde-factory
-                  :map map-serde-factory}}
-
-   :systems {:kafka (kafka-system {:zk-host "zk.example.com"
-                                   :zk-port "8081"
-                                   :kafka-host "kafka.example.com"
-                                   :kafka-port "9092"})}})
-```
-
-At the command line, run
-
-```
-$ lein run -m schema-config.core compile -s src/examples -o /tmp
-```
-
-which result in the following samza configuration being emitted to /tmp/null-job.properties
-
-```
-job.factory.class=org.apache.samza.job.local.ThreadJobFactory
-serializers.registry.map.class=samza_config.serde.MapSerdeFactory
-serializers.registry.uuid.class=samza_config.serde.UUIDSerdeFactory
-systems.kafka.consumer.zookeeper.connect=zk.example.com:8081
-systems.kafka.key.serde=uuid
-systems.kafka.msg.serde=map
-systems.kafka.producer.bootstrap.servers=kafka.example.com:9092
-systems.kafka.samza.factory.class=org.apache.samza.system.kafka.KafkaSystemFactory
-task.class=example.null_job.NullStreamTask
-task.inputs.example-system=example-stream
-```
+ * A config rewriter that pulls a job-id from the environment and generates
+   the samza config on the fly
 
 ## Usage
 
+I'm still playing around with the syntax of `defjob` but it should look something
+like this. Here's the standard LinkedIn scale word-counter.
 
+```
+(ns example.word-counter
+  (:require
+   [samza-config.core :refer [stateful-task key-value-store]]))
 
-FIXME
+(defn count-words [store sentence output]
+  (doseq [word (split sentence)]
+    (update-in store word inc)
+    (output :word-count {:word word
+                         :count (get store word)})))
+
+(defjob word-counter
+  {:inputs [(topic "words")]
+   :outputs [(topic "word-counts")]
+   :storage (key-value-store :word-counts)
+   :task (stateful-task
+           (fn [store input output]
+             (count-words store input output)))})
+```
+
+Samza jobs are typically deliverable as tarballs so we include a helper that
+knows how to build one.
+
+```
+$ lein run -m samza-job.build tarball
+```
+
+Assuming the job above, this will package the job and write it to `target/word-counter.tar.gz`
 
 ## License
 
-Copyright © 2015 FIXME
+Copyright © 2015 Andy Chambers
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
