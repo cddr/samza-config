@@ -1,7 +1,21 @@
 (ns samza-config.job
-  (:require [clojure.java.io :as io :refer [file]])
+  (:require
+   [clojure.java.io :as io :refer [file]]
+   [samza-config.utils :refer [class-name]])
   (:import
-   [org.apache.samza.task StreamTask InitableTask]))
+   [org.apache.samza.task StreamTask InitableTask]
+   [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]
+   [org.apache.samza.system.kafka KafkaSystemFactory]
+   [org.apache.samza.storage.kv RocksDbKeyValueStorageEngineFactory]
+   [samza_config.serde MapSerdeFactory UUIDSerdeFactory]))
+
+;; TODO: Consider giving these helpers their own ns
+(def thread-job-factory   {:class (.getName ThreadJobFactory)})
+(def process-job-factory  {:class (.getName ProcessJobFactory)})
+(def rocks-db-factory     {:class (.getName RocksDbKeyValueStorageEngineFactory)})
+(def map-serde-factory    {:class (.getName MapSerdeFactory)})
+(def uuid-serde-factory   {:class (.getName UUIDSerdeFactory)})
+(def kafka-system-factory {:class (.getName KafkaSystemFactory)})
 
 (def jobs (atom {}))
 
@@ -31,20 +45,6 @@
 (defn job-inputs [job]
   (:inputs job))
 
-(defn flatten-map
-  "Flattens a nested map"
-  ([form]
-     (into {} (flatten-map form nil)))
-  ([form pre]
-     (mapcat (fn [[k v]]
-               (let [prefix (if pre
-                              (conj pre k)
-                              [k])]
-                 (if (map? v)
-                   (flatten-map v prefix)
-                   [[prefix v]])))
-             form)))
-
 (defn job-config [job]
   (let [config {:job          {:factory  (job-factory job)}
                 :task         {:class    (class-name (:task job))
@@ -57,7 +57,10 @@
                                           :msg {:serde "map"}}}}]
     config))
 
-(defn write-job-config [job]
+
+;; I wrote this before figuring out how to load a config entirely from job
+;; specs defined in clojure but it might be useful sometime.
+#_(defn write-job-config [job]
   (let [fmt-cfg (fn [[path value]]
                   (format "%s=%s" (str/join "." (map name path)) value))
 
