@@ -3,16 +3,23 @@
    probably want to :refer :all this stuff in your config"
   (:require
    [clojure.string :as str]
-   [samza-config.serde]
-   [samza-config.rewriters]
    [schema.core :as s :refer [Str Int Bool Keyword]]
-   [environ.core :refer [env]])
+   [environ.core :refer [env]]
+   [samza-config.serde])
   (:import
-   [samza_config.rewriters ClojureReaderRewriter]
-   [samza_config.serde MapSerdeFactory UUIDSerdeFactory]
+   [org.apache.samza.task StreamTask InitableTask]
+   [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]
    [org.apache.samza.system.kafka KafkaSystemFactory]
    [org.apache.samza.storage.kv RocksDbKeyValueStorageEngineFactory]
-   [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]))
+   [samza_config.serde MapSerdeFactory UUIDSerdeFactory]))
+
+;; TODO: Consider giving these helpers their own ns
+(def thread-job-factory   {:class (.getName ThreadJobFactory)})
+(def process-job-factory  {:class (.getName ProcessJobFactory)})
+(def rocks-db-factory     {:class (.getName RocksDbKeyValueStorageEngineFactory)})
+(def map-serde-factory    {:class (.getName MapSerdeFactory)})
+(def uuid-serde-factory   {:class (.getName UUIDSerdeFactory)})
+(def kafka-system-factory {:class (.getName KafkaSystemFactory)})
 
 (defn class-name [class]
   (.getName class))

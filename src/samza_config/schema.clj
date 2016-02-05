@@ -18,9 +18,7 @@
 
 (defn check-isa? [parent]
   (let [_isa? (fn [class-name]
-                (println "Checking if " class-name " is a " parent)
                 (let [cls (Class/forName class-name)]
-                  (println "Checking if " cls " isa? " parent ": " (isa? cls parent))
                   (isa? cls parent)))]
     (s/pred _isa? parent)))
 
