@@ -4,14 +4,17 @@ Samza jobs. In idiomatic Clojure
 
 ## Rationale
 
-Samza takes care of a lot of quite difficult problems and while it would be
-fun to solve them in Clojure, it would take a while and we all have business
-value to deliver. We want to allow app developers to focus on the business
-logic of their app.
+Samza takes care of a lot of quite difficult problems and while it
+would be fun to solve them in Clojure (in-fact [some
+people](https://github.com/onyx-platform/onyx) are doing that and
+more), it's hard to justify the time it would take when you've got
+business features to deliver. We want to allow app developers to focus
+on the business logic of their app.
 
-Ideally, you could write a plain old clojure function, and somehow arrange
-for Samza to invoke it on each new message it is interested in. The intention
-of this project is to provide the "somehow arrange for" part.
+Ideally, you could write a plain old clojure function, and somehow
+arrange for Samza to invoke it on each new message it is interested
+in. The intention of this project is to provide the "somehow arrange
+for" part.
 
 ## Implementation
 
@@ -20,7 +23,8 @@ We do this by implementing a few key features
  * A suite of functions that take a function as input, and use `reify` to
    build an implementation of the corresponding samza interface
 
- * A `defjob` macro that acts as a helper for
+ * A `defjob` macro that registers the job and allows for it's configuration
+   to be generated
 
  * A config rewriter that pulls a job-id from the environment and generates
    the samza config on the fly
