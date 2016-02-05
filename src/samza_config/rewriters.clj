@@ -1,24 +1,13 @@
 (ns samza-config.rewriters
+  "The main value add here is `job-rewriter` which allows samza to discover a
+   job's config at runtime. This is more in-keeping with the dynamic nature
+   of clojure."
   (:require
    [clojure.edn :as edn]
    [environ.core :refer [env]]
    [samza-config.job :refer [job-config]])
   (:import
    [org.apache.samza.config MapConfig ConfigRewriter]))
-
-(defn flatten-map
-  "Flattens a nested map"
-  ([form]
-     (into {} (flatten-map form nil)))
-  ([form pre]
-     (mapcat (fn [[k v]]
-               (let [prefix (if pre
-                              (conj pre k)
-                              [k])]
-                 (if (map? v)
-                   (flatten-map v prefix)
-                   [[prefix v]])))
-             form)))
 
 (def job-rewriter
   "Returns a samza config derived from a `defjob` spec"

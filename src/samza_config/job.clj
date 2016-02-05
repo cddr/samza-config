@@ -1,4 +1,5 @@
 (ns samza-config.job
+  "This ns implements a simple DSL for defining samza jobs."
   (:require
    [clojure.java.io :as io :refer [file]]
    [samza-config.utils :refer [class-name]])
@@ -45,6 +46,20 @@
 (defn job-inputs [job]
   (:inputs job))
 
+(defn flatten-map
+  "Flattens a nested map"
+  ([form]
+     (into {} (flatten-map form nil)))
+  ([form pre]
+     (mapcat (fn [[k v]]
+               (let [prefix (if pre
+                              (conj pre k)
+                              [k])]
+                 (if (map? v)
+                   (flatten-map v prefix)
+                   [[prefix v]])))
+             form)))
+
 (defn job-config [job]
   (let [config {:job          {:factory  (job-factory job)}
                 :task         {:class    (class-name (:task job))
@@ -55,7 +70,7 @@
                 :systems      {:kafka    {:samza {:factory kafka-system-factory}
                                           :key {:serde "uuid"}
                                           :msg {:serde "map"}}}}]
-    config))
+    (flatten-map config)))
 
 
 ;; I wrote this before figuring out how to load a config entirely from job

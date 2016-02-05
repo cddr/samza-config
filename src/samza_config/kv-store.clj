@@ -8,6 +8,9 @@
    (assoc! store :foo \"foo\"
    (dissoc! store :foo)
    (conj! store [:foo :bar] inc)
+
+   See http://spootnik.org/entries/2014/11/06_playing-with-clojure-core-interfaces.html
+   for inspiration.
   "
   (:import [org.apache.samza.storage.kv KeyValueStore]
            [clojure.lang ILookup ITransientMap]))

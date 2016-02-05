@@ -2,9 +2,11 @@
   (:refer-clojure :exclude [compile])
   (:require
    [clojure.string :as str]
+   [clojure.tools.nrepl.server :refer [start-server stop-server]]
    [samza-config.schema :as schema]
    [clojure.java.io :as io :refer [file]]
-   [clojure.tools.cli :refer [parse-opts]]
+   [clojure.tools.cli :refer [parse-opts]])
+  (:import
    [org.apache.samza.task StreamTask InitableTask]))
 
 (def ^:dynamic *task-store-name*)
@@ -42,7 +44,7 @@
 ;;         (job-config job)
 
 
-(def cli-options
+#_(def cli-options
   ;; An option with a required argument
   [["-s" "--source DIR" "Source directory"
     :default "resources/jobs/"
@@ -56,7 +58,7 @@
 
    ["-h" "--help"]])
 
-(defn -main [& args]
+#_(defn -main [& args]
   (let [{:keys [options arguments summary errors]}
          (parse-opts args cli-options)]
     (case (first arguments)

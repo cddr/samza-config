@@ -3,6 +3,8 @@
   (:import
    [org.apache.samza.storage.kv KeyValueStore]))
 
+;; Maybe don't need this anymore if we provide a clojurey layer
+;; over the key-value store
 (defn key-value-store [name]
   "Return an in-memory key-value-store for testing
 
