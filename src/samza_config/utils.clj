@@ -21,8 +21,8 @@
 (def uuid-serde-factory   {:class (.getName UUIDSerdeFactory)})
 (def kafka-system-factory {:class (.getName KafkaSystemFactory)})
 
-(defn class-name [class]
-  (.getName class))
+(defn class-name [obj]
+  (.getName obj))
 
 (defn kafka-system [env]
   {:samza {:factory kafka-system-factory}
@@ -32,3 +32,6 @@
                                                   (env :zk-port)])}}
    :producer {:bootstrap {:servers (str/join ":" [(env :kafka-host)
                                                   (env :kafka-port)])}}})
+
+(defn input-topic [name]
+  (format "kafka.%s" name))

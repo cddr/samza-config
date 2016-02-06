@@ -14,7 +14,10 @@
                  [org.apache.samza/samza-kv-inmemory_2.10 "0.10.0"]
                  [org.apache.samza/samza-kv-rocksdb_2.10 "0.10.0"]
                  [io.confluent/kafka-avro-serializer "1.0"]
+                 [org.clojure/tools.nrepl "0.2.11"]
                  [prismatic/schema "1.0.4"]
                  [environ "1.0.2"]
                  [com.damballa/abracad "0.4.12"]
-                 [org.clojure/tools.cli "0.3.3"]])
+                 [org.clojure/tools.cli "0.3.3"]
+
+                 [org.apache.commons/commons-compress "1.5"]])

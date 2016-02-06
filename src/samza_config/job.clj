@@ -2,24 +2,36 @@
   "This ns implements a simple DSL for defining samza jobs."
   (:require
    [clojure.java.io :as io :refer [file]]
-   [samza-config.utils :refer [class-name]])
+   [clojure.string :as str]
+   [samza-config.utils :refer [class-name map-serde-factory uuid-serde-factory kafka-system-factory]])
   (:import
    [org.apache.samza.task StreamTask InitableTask]
+   [org.apache.samza.config MapConfig]
    [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]
    [org.apache.samza.system.kafka KafkaSystemFactory]
    [org.apache.samza.storage.kv RocksDbKeyValueStorageEngineFactory]))
 
-(def jobs (atom {}))
+(def metadata (atom {}))
 
-(defmacro defjob [job-name & body]
+(defmacro defjob
+  "Define a samza job.
+
+   Supported parameters:-
+
+     :task
+     :job-factory
+     :inputs
+     :outputs
+     :serializers
+     "
+  [job-name & body]
   `(let [job# ~@body]
-
-     ;; update the `jobs` atom with the current job-spec
-     (swap! jobs assoc ~job-name job#)
-
      ;; def the job
      (def ~job-name
-       (:task ~@body))))
+       (:task ~@body))
+
+     ;; update the `jobs` atom with the job-spec defined by `body`
+     (swap! metadata assoc '~job-name job#)))
 
 (defn job-name [job]
   (let [s (resolve job)]
@@ -28,14 +40,26 @@
      "."
      (name job))))
 
+(defn job-metadata [job]
+  (get @metadata job))
+
 (defn job-factory [job]
+;  {:pre [(:job-factory job)]}
   (let [factories {:thread  (class-name ThreadJobFactory)
                    :process (class-name ProcessJobFactory)}]
     {:class
-     (factories (:job-factory job))}))
+     (factories (:job-factory (@metadata job)))}))
 
 (defn job-inputs [job]
-  (:inputs job))
+  (str/join ", " (:inputs (@metadata job))))
+
+(defn job-task [job]
+  (let [job-meta (@metadata job)]
+    (class-name (class (:task job-meta)))))
+
+(defn job-serializers [job]
+  {:registry
+   (:serializers (@metadata job))})
 
 (defn flatten-map
   "Flattens a nested map"
@@ -52,16 +76,25 @@
              form)))
 
 (defn job-config [job]
-  (let [config {:job          {:factory  (job-factory job)}
-                :task         {:class    (class-name (:task job))
+  (let [job-meta (@metadata job)
+        config {:job          {:name     (job-name job)
+                               :factory  (job-factory job)}
+
+                :task         {:class    (job-task job)
                                :inputs   (job-inputs job)}
-                :serializers  {:registry
-                               {"uuid"   uuid-serde-factory
-                                "map"    map-serde-factory}}
+                :serializers  (job-serializers job)
                 :systems      {:kafka    {:samza {:factory kafka-system-factory}
                                           :key {:serde "uuid"}
-                                          :msg {:serde "map"}}}}]
-    (flatten-map config)))
+                                          :msg {:serde "map"}}}}
+
+        propertize-keys (fn [[path value]]
+                          [(str/join "." (map name path)) value])]
+
+    (->> (flatten-map config)
+         (sort-by first)
+         (mapcat propertize-keys)
+         (apply hash-map)
+         (MapConfig.))))
 
 
 ;; I wrote this before figuring out how to load a config entirely from job
