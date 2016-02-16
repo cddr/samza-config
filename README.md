@@ -1,5 +1,7 @@
 # samza-config
 
+[![Join the chat at https://gitter.im/cddr/samza-config](https://badges.gitter.im/cddr/samza-config.svg)](https://gitter.im/cddr/samza-config?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Samza jobs. In idiomatic Clojure
 
 ## Rationale
