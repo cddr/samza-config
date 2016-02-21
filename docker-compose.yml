@@ -1,0 +1,41 @@
+zookeeper:
+  image: confluent/zookeeper
+  expose:
+    - "2181:2181"
+
+kafka:
+  image: confluent/kafka
+  environment:
+    KAFKA_ADVERTISED_HOST_NAME:
+  links:
+    - zookeeper
+  expose:
+    - "9092:9092"
+
+schema-registry:
+  image: confluent/schema-registry
+  links:
+    - zookeeper
+    - kafka
+  expose:
+    - "8081:8081"
+
+repl:
+  environment:
+    - ARTIFACTORY_USER
+    - ARTIFACTORY_PASSWORD
+    - ZOOKEEPER_ADDRESS=zookeeper:2181
+    - KAFKA_ADDRESS=kafka:9092
+    - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+  volumes:
+    - ~/.m2:/root/.m2
+    - ~/.lein:/root/.lein
+    - .:/app
+  links:
+    - zookeeper:zookeeper
+    - kafka:kafka
+    - schema-registry:schema-registry
+  image: pandeiro/lein
+  command: repl :headless :host 0.0.0.0 :port 9999
+  ports:
+    - "0.0.0.0:9999:9999"

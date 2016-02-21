@@ -2,12 +2,13 @@
   (:require
    [clojure.test :refer :all]
    [samza-config.schema :refer [valid? explain-path errors]]
-   [samza-config.utils :refer :all]
+   [samza-config.serde]
    [clojure.walk :refer [postwalk]])
 
   (:import
    [org.apache.samza.job StreamJobFactory]
-   [org.apache.samza.task StreamTask]))
+   [org.apache.samza.task StreamTask]
+   [samza_config.serde UUIDSerdeFactory AvroSerdeFactory]))
 
 (defn has-error? [job path]
   (let [err (errors job)]
@@ -26,23 +27,6 @@
 
 (def string-serde-factory
   {:class "org.apache.samza.serializers.StringSerdeFactory"})
-
-(deftest valid-kafka-job-test
-  (testing "typical kafka based job"
-    (is (valid? {:job {:factory thread-job-factory
-                       :name "hello-world"}
-
-                 :task {:class (class-name MockStreamTask)
-                        :inputs {"example-system" "example-stream"}}
-
-                 :serializers {:registry
-                               {:uuid uuid-serde-factory
-                                :map map-serde-factory}}
-
-                 :systems {:kafka (kafka-system {:zk-host "zk.example.com"
-                                                 :zk-port "8081"
-                                                 :kafka-host "kafka.example.com"
-                                                 :kafka-port "9092"})}}))))
 
 (deftest factory-resolvers-test
   (testing "StreamJobFactory"

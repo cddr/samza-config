@@ -37,21 +37,37 @@ like this. Here's the standard LinkedIn scale word-counter.
 ```
 (ns example.word-counter
   (:require
-   [samza-config.core :refer [stateful-task key-value-store]]))
+   [samza-config.core :refer [local-storage job-coordinator task-factory]]
+   [org.apache.samza.serializers StringSerdeFactory]))
 
-(defn count-words [store sentence output]
-  (doseq [word (split sentence)]
-    (update-in store word inc)
-    (output :word-count {:word word
-                         :count (get store word)})))
+(defn word-counter [config context]
+  (let [store (local-storage context "word-counts")]
+    (reify
+      StreamTask
+      (process [this envelope collector coordinator]
+        (let [word (.getMessage envelope)]
+          (swap! store update-in [word] (fnil inc 0)))))))
 
 (defjob word-counter
-  {:inputs [(topic "words")]
-   :outputs [(topic "word-counts")]
-   :storage (key-value-store :word-counts)
-   :task (stateful-task
-           (fn [store input output]
-             (count-words store input output)))})
+  {:job {:factory thread-job-factory
+         :coordinator (job-coordinator "word-counter" (env :coordinator-replication-factor))
+         :task {:factory (task-factory 'word-counter)}}
+
+   :systems {:word-counter
+             {:samza {:factory kafka-system-factory}
+              :streams (input-streams
+                        (input-topic "words" :string :string))
+              :consumer (env :zk-addr)
+              :producer (env :kafka-addr)}}
+
+   :serializers {:registry
+                 {"string" {:class StringSerdeFactory}}}
+
+   :stores (stores
+            (kv-store "word-counts" :edn :edn))
+
+   :task {:class "samza-config.task.Task"
+          :inputs (task-inputs "words")}})
 ```
 
 Samza jobs are typically deliverable as tarballs so we include a helper that

@@ -1,65 +1,20 @@
 (ns samza-config.job
-  "This ns implements a simple DSL for defining samza jobs."
+  "This ns implements a simple DSL for defining and running samza jobs"
   (:require
+   [environ.core :refer [env]]
    [clojure.java.io :as io :refer [file]]
-   [clojure.string :as str]
-   [samza-config.utils :refer [class-name map-serde-factory uuid-serde-factory kafka-system-factory]])
+   [clojure.string :as str])
   (:import
-   [org.apache.samza.task StreamTask InitableTask]
    [org.apache.samza.config MapConfig]
-   [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]
-   [org.apache.samza.system.kafka KafkaSystemFactory]
-   [org.apache.samza.storage.kv RocksDbKeyValueStorageEngineFactory]))
+   [org.apache.samza.system.kafka KafkaSystemFactory]))
 
-(def metadata (atom {}))
+(def job-metadata (atom {}))
 
-(defmacro defjob
-  "Define a samza job.
-
-   Supported parameters:-
-
-     :task
-     :job-factory
-     :inputs
-     :outputs
-     :serializers
-     "
-  [job-name & body]
-  `(let [job# ~@body]
-     ;; def the job
-     (def ~job-name
-       (:task ~@body))
-
-     ;; update the `jobs` atom with the job-spec defined by `body`
-     (swap! metadata assoc '~job-name job#)))
-
-(defn job-name [job]
-  (let [s (resolve job)]
-    (str
-     (.name (.ns s))
-     "."
-     (name job))))
-
-(defn job-metadata [job]
-  (get @metadata job))
-
-(defn job-factory [job]
-;  {:pre [(:job-factory job)]}
-  (let [factories {:thread  (class-name ThreadJobFactory)
-                   :process (class-name ProcessJobFactory)}]
-    {:class
-     (factories (:job-factory (@metadata job)))}))
-
-(defn job-inputs [job]
-  (str/join ", " (:inputs (@metadata job))))
-
-(defn job-task [job]
-  (let [job-meta (@metadata job)]
-    (class-name (class (:task job-meta)))))
-
-(defn job-serializers [job]
-  {:registry
-   (:serializers (@metadata job))})
+(defn find-job [job-name]
+  (or (get @job-metadata (str job-name))
+      (throw (ex-info (format "Cannot find job for %s" job-name)
+                      {:job job-name
+                       :job-db @job-metadata}))))
 
 (defn flatten-map
   "Flattens a nested map"
@@ -75,38 +30,60 @@
                    [[prefix v]])))
              form)))
 
-(defn job-config [job]
-  (let [job-meta (@metadata job)
-        config {:job          {:name     (job-name job)
-                               :factory  (job-factory job)}
+(defn input-streams [& streams]
+  (apply hash-map (mapcat identity streams)))
 
-                :task         {:class    (job-task job)
-                               :inputs   (job-inputs job)}
-                :serializers  (job-serializers job)
-                :systems      {:kafka    {:samza {:factory kafka-system-factory}
-                                          :key {:serde "uuid"}
-                                          :msg {:serde "map"}}}}
+(defn input-topic [topic key-serde msg-serde]
+  [(keyword topic)
+   {:key {:serde (name key-serde)}
+    :msg {:serde (name msg-serde)}}])
 
-        propertize-keys (fn [[path value]]
+(def ^:dynamic *system*)
+
+(defn task-inputs [& inputs]
+  (str/join "," (map #(str *system* "." %) inputs)))
+
+(defn job-coordinator [system replication-factor]
+  {:system "kafka"
+   :replication {:factor "1"}})
+
+(defn stores [& stores]
+  (apply hash-map (mapcat identity stores)))
+
+(defn kv-store [store key-serde msg-serde]
+  [(keyword store)
+   {:key {:serde (name key-serde)}
+    :msg {:serde (name msg-serde)}
+    :factory "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory"
+    :change-log (str store "-changelog")}])
+
+(defn samza-config [job]
+  (let [propertize-keys (fn [[path value]]
                           [(str/join "." (map name path)) value])]
-
-    (->> (flatten-map config)
+    (->> (flatten-map job)
          (sort-by first)
          (mapcat propertize-keys)
          (apply hash-map)
          (MapConfig.))))
 
+(defmacro defjob
+  "Define a samza job. This is a convenience wrapper around samza-config. It just
+   registers the job by name so that it can be found by `find-job`
 
-;; I wrote this before figuring out how to load a config entirely from job
-;; specs defined in clojure but it might be useful sometime.
-#_(defn write-job-config [job]
-  (let [fmt-cfg (fn [[path value]]
-                  (format "%s=%s" (str/join "." (map name path)) value))
+   Supported parameters:-
 
-        out (file "resources/" (str (job-name job) ".properties"))
-        props (->> (flatten-map (job-config job)
-                                (sort)
-                                (map fmt-cfg)
-                                (str/join "\n")))]
-    (spit out props)
-    (println "Wrote" (.getAbsolutePath out))))
+     :task
+     :job-factory
+     :inputs
+     :outputs
+     :serializers
+     "
+  [job-name version & body]
+  `(binding [*system* ~job-name]
+     (let [m# (hash-map ~@body)
+           job# (samza-config (merge-with merge {:job {:name ~(str *ns* "." job-name)}} m#))]
+       (swap! job-metadata assoc (get job# "job.name") job#))))
+
+;; (defn -main [& args]
+;;   (JobRunner/main (into-array ["--config-factory=" (.getName JobConfigFactory)
+;;                                "--config-path=" (first args)])))
