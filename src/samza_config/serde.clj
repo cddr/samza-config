@@ -60,15 +60,11 @@
           (let [schema (.getByID (registry) (.getInt buffer))
                 len (- (.limit buffer) 1 id-size)
                 start (+ (.position buffer)
-                         (.arrayOffset buffer))]
-            (a/decode schema (a/binary-decoder [(.array buffer) start len]))))))))
-
-;; The encoder needs to be dynamically bound because there's nothing in
-;; a message itself to indicate which schema should be used to encode the
-;; message. So when building publishers/consumers, we can setup bindings
-;; for these vars using the functions above.
-
-
+                         (.arrayOffset buffer))
+                decoded (a/decode schema
+                                  (a/binary-decoder [(.array buffer) start len]))]
+            (println "decoded value: " decoded)
+            decoded))))))
 
 (defrecord AvroSerdeFactory []
   SerdeFactory

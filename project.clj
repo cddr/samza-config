@@ -1,11 +1,11 @@
 (defproject samza-config "0.2.0-SNAPSHOT"
-  :description "Write samza jobs in Clojure"
-  :url "http://example.com/FIXME"
+  :description "Clojure interface to Samza"
+  :url "http://github.com/cddr/samza-config"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :repositories [["confluent" "http://packages.confluent.io/maven/"]]
   :plugins [[lein-environ "1.0.2"]]
-  :aot [samza-config.serde samza-config.task]
+  :aot [samza-config.serde samza-config.confluent samza-config.task]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/core.async "0.2.374"]
                  [org.slf4j/slf4j-log4j12 "1.6.2"]

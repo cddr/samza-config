@@ -34,6 +34,14 @@ We do this by implementing a few key features
 I'm still playing around with the syntax of `defjob` but it should look something
 like this. Here's the standard LinkedIn scale word-counter.
 
+Update:
+
+The syntax is stabilizing a bit. The job below defines a working samza job
+that assumes `email-task` implements the StreamTask interface and submits an
+email if one hasn't already been sent. This also decodes messages using
+confluent's schema registry. Read more about that here
+
+http://docs.confluent.io/1.0.1/schema-registry/docs/index.html
 ```
 (ns example.word-counter
   (:require
