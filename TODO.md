@@ -1,8 +1,29 @@
 
-## run-jobs
+ * [ ] manifold system factory
+ * [ ] canned jobs for
+        - emitting metrics to riemann/graphite
+        - feeding topic into elasticache/dynamodb
 
-Takes a number of vars and run the samza jobs they represent
 
-## rocks-atom
+(deftest test-samza-job
+  (let [input (s/stream)
+        output (s/stream)
+        job (-> (merge-jobs 'word-counter 'test-job))]
 
-Makes a rocks-db behave like a transient map (see http://spootnik.org/entries/2014/11/06_playing-with-clojure-core-interfaces.html)
+    (d/future (run-job job))
+
+    (input "words" "Cats are mean")
+    (input "words" "Dogs are nice")
+
+    (let [word-counts (take 6 (s/stream->seq output 1000))]
+      (is (= [["Cats" 1]
+              ["are" 1]
+              ["mean" 1]
+              ["Dogs" 1]
+              ["are" 2]
+              ["nice" 1]]
+             word-counts)))))
+
+
+
+riemann/samza metrics integration (or should we just go straight to graphite?)

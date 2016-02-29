@@ -9,6 +9,7 @@
    [samza-config.serde])
   (:import
    [samza_config.serde AvroSerdeFactory UUIDSerdeFactory EDNSerdeFactory]
+   [io.confluent.kafka.schemaregistry.client CachedSchemaRegistryClient]
    [org.apache.samza.config MapConfig]
    [org.apache.samza.system.kafka KafkaSystemFactory]
    [org.apache.samza.job.local ThreadJobFactory ProcessJobFactory]
@@ -26,13 +27,7 @@
 (def uuid-serde-factory   {:class (.getName UUIDSerdeFactory)})
 (def edn-serde-factory    {:class (.getName EDNSerdeFactory)})
 
-(def job-metadata (atom {}))
-
-(defn find-job [job-name]
-  (or (get @job-metadata (str job-name))
-      (throw (ex-info (format "Cannot find job for %s" job-name)
-                      {:job job-name
-                       :job-db @job-metadata}))))
+(def schema-registry-client {:class (.getName CachedSchemaRegistryClient)})
 
 (defn full-name [sym]
   (str (resolve sym)))
@@ -64,6 +59,12 @@
 (defn task-inputs [& inputs]
   (str/join "," (map #(str *system* "." %) inputs)))
 
+(defn zookeeper-config [env]
+  {:zookeeper {:connect (:zookeeper-address env)}})
+
+(defn kafka-config [env]
+  {:bootstrap {:servers (:kafka-address env)}})
+
 (defn job-coordinator [system replication-factor]
   {:system "kafka"
    :replication {:factor "1"}})
@@ -79,19 +80,25 @@
     :change-log (str store "-changelog")}])
 
 (defn kafka-system
-  [zk-spec kafka-spec & [key-serde msg-serde]]
+  [env & [key-serde msg-serde]]
   (let [samza (cond-> {:factory (.getName KafkaSystemFactory)}
-                key-serde (assoc :key (name key-serde))
-                msg-serde (assoc :msg (name msg-serde)))]
+                key-serde (assoc :key {:serde (name key-serde)})
+                msg-serde (assoc :msg {:serde (name msg-serde)}))]
     {:samza samza
-     :consumer zk-spec
-     :producer kafka-spec}))
+     :consumer {:zookeeper {:connect (env :zookeeper-connect)}}
+     :producer {:bootstrap {:servers (env :kafka-brokers)}}}))
+
+(defn schema-registry
+  [env]
+  {:schema
+   {:resolver (env :schema-resolver)
+    :registry (merge {:url (env :schema-registry-url)
+                      :factory (env :schema-registry-factory)})}})
 
 (defn samza-config [job]
   (let [propertize-keys (fn [[path value]]
                           [(str/join "." (map name path)) value])]
     (->> (flatten-map job)
-         (sort-by first)
          (mapcat propertize-keys)
          (apply hash-map)
          (MapConfig.))))
@@ -109,7 +116,7 @@
      :serializers
      "
   [job-name version & body]
-  `(binding [*system* ~job-name]
-     (let [m# (hash-map ~@body)
-           job# (samza-config (merge-with merge {:job {:name ~(str *ns* "." job-name)}} m#))]
-       (swap! job-metadata assoc (get job# "job.name") job#))))
+  `(binding [*system* ~(str job-name)]
+     (def ~job-name (merge-with merge
+                                {:job {:name ~(full-name job-name)}}
+                                (hash-map ~@body)))))

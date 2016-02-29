@@ -1,5 +1,6 @@
 (ns samza-config.task
   (:require [clojure.string :as str])
+  (:import [org.apache.samza.task WindowableTask ClosableTask StreamTask])
   (:gen-class
    :name samza-config.task.Task
    :main false
@@ -8,8 +9,11 @@
    :implements [org.apache.samza.task.InitableTask
                 org.apache.samza.task.WindowableTask
                 org.apache.samza.task.ClosableTask
-                org.apache.samza.task.StreamTask])
-  (:import [org.apache.samza.system OutgoingMessageEnvelope SystemStream]))
+                org.apache.samza.task.StreamTask]))
+
+(defn handle-exception [e state]
+  (println e)
+  (println state))
 
 (defn -clojure-init []
   [[] (atom {})])
@@ -27,16 +31,25 @@
   (:task @(.state this)))
 
 (defn -process [this envelope collector coordinator]
-  (let [task (get-task this)]
-    (.process task
-              envelope
-              collector
-              coordinator)))
+  (try
+    (let [task (get-task this)]
+      (when (instance? StreamTask task)
+        (.process task envelope collector coordinator)))
+    (catch Exception e
+      (handle-exception e (.state this)))))
 
 (defn -window [this collector coordinator]
-  (let [task (get-task this)]
-    (.window task collector coordinator)))
+  (try
+    (let [task (get-task this)]
+      (when (instance? WindowableTask task)
+        (.window task collector coordinator)))
+    (catch Exception e
+      (handle-exception e (.state this)))))
 
 (defn -close [this]
-  (let [task (get-task this)]
-    (.close task)))
+  (try
+    (let [task (get-task this)]
+      (when (instance? ClosableTask task)
+        (.close task)))
+    (catch Exception e
+      (handle-exception e (.state this)))))

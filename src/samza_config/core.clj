@@ -9,29 +9,26 @@
   (:import
    [org.apache.samza.config ConfigFactory MapConfig]
    [clojure.lang ILookup ITransientMap]
-   [org.apache.samza.job JobRunner]))
+   [org.apache.samza.job JobRunner]
+   [org.apache.samza.task TaskCoordinator$RequestScope]))
+
+(def ^:dynamic *samza-system-name*)
+(def ^:dynamic *samza-stream-name*)
+
+(def commit-scopes
+  {:task TaskCoordinator$RequestScope/CURRENT_TASK
+   :all TaskCoordinator$RequestScope/ALL_TASKS_IN_CONTAINER})
+
+(defn commit [coordinator scope]
+  (.commit coordinator (commit-scopes scope)))
 
 (defn local-storage [context name]
-  (let [read-val edn/read-string
-        write-val pr-str
-        kv-store (.getStore context name)]
-    (reify
-      ILookup
-      (valAt [this k]
-        (when-let [result (.get kv-store k)]
-          (read-val result)))
-      (valAt [this k default]
-        (or (.valAt this k)
-            default))
-
-      ITransientMap
-      (assoc [this k v]
-        (.put kv-store k (write-val v))
-        this) ;; transients always return themselves on mutation.
-      (without [this k]
-        (.delete kv-store k)
-        this))))
+  (.getStore context name))
 
 (defn run-job [job-config]
   (let [runner (JobRunner. (MapConfig. job-config))]
     (.run runner true)))
+
+(defn pprint-config [job-config]
+  (doseq [[k v] (into (sorted-map) job-config)]
+    (println (format "%s=%s" k v))))
