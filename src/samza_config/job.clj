@@ -32,6 +32,14 @@
 (defn full-name [sym]
   (str (resolve sym)))
 
+(defn job-name [sym]
+  (let [resolved (resolve sym)
+        m (meta resolved)]
+
+    (str (ns-name (:ns m))
+         "/"
+         (str (name (:name m))))))
+
 (defn flatten-map
   "Flattens a nested map"
   ([form]
@@ -115,8 +123,8 @@
      :outputs
      :serializers
      "
-  [job-name version & body]
-  `(binding [*system* ~(str job-name)]
-     (def ~job-name (merge-with merge
-                                {:job {:name ~(full-name job-name)}}
+  [job-sym version & body]
+  `(binding [*system* ~(str job-sym)]
+     (def ~job-sym (merge-with merge
+                                {:job {:name ~(job-name job-sym)}}
                                 (hash-map ~@body)))))
