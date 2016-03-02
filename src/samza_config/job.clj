@@ -30,7 +30,7 @@
 (def schema-registry-client {:class (.getName CachedSchemaRegistryClient)})
 
 (defn full-name [sym]
-  (str (resolve sym)))
+  (str sym))
 
 (defn job-name [sym]
   (str (ns-name *ns*)

@@ -27,16 +27,13 @@
              (.getMessage envelope)))))
 
 (defn mock-kv-store []
-  (println "building mock kv store")
   (let [store (atom {})]
     (reify KeyValueStore
       (get [this k]
         (let [result (get @store k)]
-          (println "get" k "in" @store)
           result))
 
       (put [this k v]
-        (println "put:" k v)
         (swap! store assoc k v))
 
       #_(delete [this k]
@@ -75,10 +72,10 @@
   (let [task-factory (-> (get-in job-config [:job :task :factory])
                          read-string
                          eval)]
-
     (let [config (samza-config job-config)
           context (mock-task-context job-config)]
-      (println "Build task from config:")
+
+      (println "build-task: ")
       (doseq [[k v] (into (sorted-map) config)]
         (println (format "  %s = %s" k v)))
 
@@ -124,6 +121,9 @@
                           (str (get @offsets topic))
                           (roundtrip (:id msg) key-serde)
                           (roundtrip msg msg-serde)))]
+
+          (println "job tasks: " job-tasks)
+
           (doseq [[job task] job-tasks]
             (let [key-serde (mock-serde job (key-serde job system topic))
                   msg-serde (mock-serde job (msg-serde job system topic))]
