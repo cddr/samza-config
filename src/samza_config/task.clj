@@ -19,6 +19,7 @@
   [[] (atom {})])
 
 (defn -init [this config context]
+  (println "Initializing task: " this config context)
   (let [task-factory (-> (.get config "job.task.factory")
                          read-string
                          eval)]

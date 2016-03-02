@@ -3,6 +3,7 @@
    and shortcuts for samza factories. The intention is to make job specs a little
    more readable than the standard Samza configuration"
   (:require
+   [inflections.core :refer [underscore]]
    [environ.core :refer [env]]
    [clojure.java.io :as io :refer [file]]
    [clojure.string :as str]
@@ -33,9 +34,9 @@
   (str sym))
 
 (defn job-name [sym]
-  (str (ns-name *ns*)
-       "/"
-       (str sym)))
+  (underscore (str (ns-name *ns*)
+                   "."
+                   (str sym))))
 
 (defn flatten-map
   "Flattens a nested map"
