@@ -122,8 +122,6 @@
                           (roundtrip (:id msg) key-serde)
                           (roundtrip msg msg-serde)))]
 
-          (println "job tasks: " job-tasks)
-
           (doseq [[job task] job-tasks]
             (let [key-serde (mock-serde job (key-serde job system topic))
                   msg-serde (mock-serde job (msg-serde job system topic))]
