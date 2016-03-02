@@ -33,12 +33,9 @@
   (str (resolve sym)))
 
 (defn job-name [sym]
-  (let [resolved (resolve sym)
-        m (meta resolved)]
-
-    (str (ns-name (:ns m))
-         "/"
-         (str (name (:name m))))))
+  (str (ns-name *ns*)
+       "/"
+       (str sym)))
 
 (defn flatten-map
   "Flattens a nested map"
