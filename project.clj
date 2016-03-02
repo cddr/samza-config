@@ -5,7 +5,9 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :repositories [["confluent" "http://packages.confluent.io/maven/"]]
   :plugins [[lein-environ "1.0.2"]]
-  :aot [samza-config.serde samza-config.confluent samza-config.task]
+  :aot [samza-config.serde
+        samza-config.confluent
+        samza-config.task]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/core.async "0.2.374"]
                  [org.slf4j/slf4j-log4j12 "1.6.2"]
@@ -17,6 +19,7 @@
                  [org.apache.samza/samza-kv-inmemory_2.10 "0.10.0"]
                  [org.apache.samza/samza-kv-rocksdb_2.10 "0.10.0"]
                  [io.confluent/kafka-avro-serializer "1.0"]
+                 [io.confluent/kafka-schema-registry-client "1.0"]
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/tools.nrepl "0.2.11"]
                  [inflections "0.11.0"]

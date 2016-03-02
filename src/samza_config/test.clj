@@ -6,6 +6,7 @@
    [manifold.stream :as s]
    [manifold.deferred :as d])
   (:import
+   [io.confluent.kafka.schemaregistry.client LocalSchemaRegistryClient]
    [org.apache.samza.config MapConfig]
    [org.apache.samza.job JobRunner]
    [org.apache.samza.storage.kv KeyValueStore]
