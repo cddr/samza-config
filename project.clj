@@ -1,4 +1,4 @@
-(defproject samza-config "0.2.0-SNAPSHOT"
+(defproject samza-config "0.2.0"
   :description "Clojure interface to Samza"
   :url "http://github.com/cddr/samza-config"
   :license {:name "Eclipse Public License"
