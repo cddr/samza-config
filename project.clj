@@ -3,7 +3,8 @@
   :url "http://github.com/cddr/samza-config"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :repositories [["confluent" "http://packages.confluent.io/maven/"]]
+  :repositories [["confluent" "http://packages.confluent.io/maven/"]
+                 ["clojars" {:sign-releases false}]]
   :plugins [[lein-environ "1.0.2"]]
   :aot [samza-config.serde
         samza-config.confluent
