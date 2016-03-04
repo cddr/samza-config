@@ -2,9 +2,7 @@
   (:require
    [clojure.string :as str]
    [samza-config.core :refer [*samza-system-name* *samza-stream-name*]]
-   [samza-config.job :refer [samza-config]]
-   [manifold.stream :as s]
-   [manifold.deferred :as d])
+   [samza-config.job :refer [samza-config]])
   (:import
    [io.confluent.kafka.schemaregistry.client LocalSchemaRegistryClient]
    [org.apache.samza.config MapConfig]
@@ -36,21 +34,21 @@
       (put [this k v]
         (swap! store assoc k v))
 
-      #_(delete [this k]
+      (delete [this k]
           (swap! store dissoc k))
 
-      #_(getAll [this ks]
+      (getAll [this ks]
           (map #(get @store %) ks))
 
-      #_(putAll [this entries]
+      (putAll [this entries]
           (doseq [e entries]
             (swap! store assoc (.getKey e) (.getValue e))))
 
-      #_(deleteAll [this ks]
+      (deleteAll [this ks]
           (doseq [k ks]
             (.delete this k)))
 
-      #_(range [this from to]
+      (range [this from to]
           (filter (fn [[k v]]
                     (and (<= k to)
                          (>= k from)))
@@ -62,7 +60,15 @@
     (shutdown [this scope])))
 
 (defn mock-task-context [job-config]
-  (let [stores {"email-results" (mock-kv-store)}]
+  (let [stores (->> (:stores job-config)
+                    (map (fn [[store-name store-serdes]]
+                           ;; TODO:
+                           ;;
+                           ;; It wouldn't be hard to put objects through whatever serializer
+                           ;; is defined for the store.
+                           [(name store-name) (mock-kv-store)]))
+                    (mapcat identity)
+                    (apply hash-map))]
     (reify
       TaskContext
       (getStore [this store]
