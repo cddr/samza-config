@@ -7,7 +7,7 @@
    [io.confluent.kafka.schemaregistry.client LocalSchemaRegistryClient]
    [org.apache.samza.config MapConfig]
    [org.apache.samza.job JobRunner]
-   [org.apache.samza.storage.kv KeyValueStore]
+   [org.apache.samza.storage.kv KeyValueStore KeyValueIterator Entry]
    [org.apache.samza.task MessageCollector TaskContext TaskCoordinator]
    [org.apache.samza Partition]
    [org.apache.samza.system SystemStream SystemStreamPartition IncomingMessageEnvelope]))
@@ -47,6 +47,13 @@
       (deleteAll [this ks]
           (doseq [k ks]
             (.delete this k)))
+
+      (all [this]
+        (let [iterator (.iterator (map (fn [[k v]] (Entry. k v)) @store))]
+          (reify
+            KeyValueIterator
+            (hasNext [this] (.hasNext iterator))
+            (next [this] (.next iterator)))))
 
       (range [this from to]
           (filter (fn [[k v]]
