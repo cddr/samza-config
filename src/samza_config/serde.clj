@@ -10,7 +10,7 @@
    [org.apache.samza.system SystemStream OutgoingMessageEnvelope]
    [java.io ByteArrayOutputStream DataOutputStream]
    [kafka.serializer Encoder Decoder]
-   [io.confluent.kafka.schemaregistry.client CachedSchemaRegistryClient]
+   [io.confluent.kafka.schemaregistry.client CachedSchemaRegistryClient LocalSchemaRegistryClient]
    [org.apache.avro.io DatumWriter]))
 
 (def magic                 (byte 0x0))
@@ -26,6 +26,9 @@
                                   edn/read-string)
                               100)]
     (CachedSchemaRegistryClient. registry-url registry-capacity)))
+
+(defn local-registry []
+  (LocalSchemaRegistryClient.))
 
 (defmacro with-schema-registry [registry & body]
   `(binding [*registry* ~registry]

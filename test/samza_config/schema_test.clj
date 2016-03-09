@@ -17,10 +17,6 @@
 (defn not-error? [job path]
   (not (has-error? job path)))
 
-(defrecord MockJobFactory []
-  StreamJobFactory
-  (getJob [this config]))
-
 (defrecord MockStreamTask []
   StreamTask
   (process [this envelope collector coordinator]))
@@ -29,16 +25,6 @@
   {:class "org.apache.samza.serializers.StringSerdeFactory"})
 
 (deftest factory-resolvers-test
-  (testing "StreamJobFactory"
-    (let [job (fn [factory-class]
-                {:job {:factory {:class factory-class}}})
-
-          valid-factory (job (.getName MockJobFactory))
-          invalid-factory (job "java.lang.Object")]
-
-      (is (has-error? invalid-factory [:job :factory :class]))
-      (is (not-error? valid-factory [:job :factory :class]))))
-
   (testing "SerdeFactory"
     (let [job (fn [serde-class]
                 {:serializers

@@ -119,11 +119,7 @@
         output         (atom {})
         collector      (mock-collector output)
         coordinator    (mock-coordinator)
-        job-tasks      (mapv (juxt identity build-task) job-configs)
-
-        ;; TODO: This seems like it shouldn't be here but it is convenient
-        ;;       for now
-        registry       (LocalSchemaRegistryClient.)]
+        job-tasks      (mapv (juxt identity build-task) job-configs)]
 
     (reify TestSystem
       (input [this system topic message]
