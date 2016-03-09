@@ -149,7 +149,8 @@
                           coordinator))))))
 
       (trigger-window [this]
-        (.process task collector coordinator))
+        (doseq [[_ task] job-tasks]
+          (.process task collector coordinator)))
 
       (output [this topic]
         (get @output topic)))))
