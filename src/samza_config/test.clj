@@ -148,7 +148,7 @@
                           collector
                           coordinator))))))
 
-      (trigger-window []
+      (trigger-window [this]
         (.process task collector coordinator))
 
       (output [this topic]
