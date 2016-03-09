@@ -49,28 +49,11 @@
             (.delete this k)))
 
       (all [this]
-        (let [index (atom -1)
-              current-store (vec @store)]
+        (let [iterator (.iterator (map (fn [[k v]] (Entry. k v)) @store))]
           (reify
-            java.util.Iterator
-            (hasNext [thiz]
-              (< (inc @index) (count current-store)))
-
-            (next [thiz]
-              (swap! index inc)
-              (let [[k v] (nth current-store @index)]
-                (Entry. k v)))
-
-            (remove [thiz]
-              (let [[k _] (nth current-store @index)]
-                (.delete this k)))
-
             KeyValueIterator
-            (close [thiz]
-              (.close this)))))
-
-      (close [this]
-        nil)
+            (hasNext [this] (.hasNext iterator))
+            (next [this] (.next iterator)))))
 
       (range [this from to]
           (filter (fn [[k v]]
