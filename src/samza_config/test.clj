@@ -14,7 +14,8 @@
 
 (defprotocol TestSystem
   (input [this system topic message])
-  (output [this topic]))
+  (output [this topic])
+  (trigger-window [this]))
 
 (defn mock-collector [output]
   (reify MessageCollector
@@ -147,6 +148,8 @@
                           collector
                           coordinator))))))
 
+      (trigger-window []
+        (.process task collector coordinator))
 
       (output [this topic]
         (get @output topic)))))
