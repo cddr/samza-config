@@ -1,5 +1,7 @@
 (ns samza-config.task
-  (:require [clojure.string :as str])
+  (:require
+   [clojure.string :as str]
+   [samza-config.serde :refer [with-schema-registry registry]])
   (:import [org.apache.samza.task WindowableTask ClosableTask StreamTask])
   (:gen-class
    :name samza-config.task.Task
@@ -28,14 +30,18 @@
                            :config config
                            :context context})))
 
-(defn- get-task [this]
+(defn get-task [this]
   (:task @(.state this)))
+
+(defn get-config [this]
+  (:config @(.state this)))
 
 (defn -process [this envelope collector coordinator]
   (try
     (let [task (get-task this)]
       (when (instance? StreamTask task)
-        (.process task envelope collector coordinator)))
+        (with-schema-registry (registry (get-config task))
+          (.process task envelope collector coordinator))))
     (catch Exception e
       (handle-exception e (.state this)))))
 
