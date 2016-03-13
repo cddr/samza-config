@@ -18,23 +18,17 @@
 (def registry-cache-size   100)
 (def schema-registry-url   (System/getenv "SCHEMA_REGISTRY_URL"))
 
-(def ^:dynamic *registry*)
-
-(defn registry [config]
+(defn registry-client [config]
   (let [registry-url (-> (.get config "confluent.schema.registry.url"))
         registry-capacity (or (-> (.get config "confluent.schema.registry.capacity")
                                   edn/read-string)
                               100)]
     (CachedSchemaRegistryClient. registry-url registry-capacity)))
 
-(defn local-registry []
+(defn local-registry-client [_config]
   (LocalSchemaRegistryClient.))
 
-(defmacro with-schema-registry [registry & body]
-  `(binding [*registry* ~registry]
-     ~@body))
-
-(defn avro-encoder [config]
+(defn avro-encoder [registry config]
   (let [schema (let [find-schema (-> (get config "confluent.schema.resolver")
                                      (read-string)
                                      (eval))]
@@ -47,7 +41,7 @@
     (-> (reify Encoder
           (toBytes [this object]
             (when object
-              (let [version (.register *registry* (topic schema) schema)
+              (let [version (.register registry (topic schema) schema)
                     out (ByteArrayOutputStream.)]
                 (doto (DataOutputStream. out)
                   (.writeByte magic)
@@ -56,13 +50,13 @@
                 (a/encode schema out object)
                 (.toByteArray out))))))))
 
-(defn avro-decoder [config]
+(defn avro-decoder [registry config]
   (reify Decoder
     (fromBytes [this bs]
       (when-let [buffer (and bs (java.nio.ByteBuffer/wrap bs))]
         (if-not (= (.get buffer) magic)
           (throw (ex-info "Unknown magic byte" {:bytes bs}))
-          (let [schema (.getByID *registry* (.getInt buffer))
+          (let [schema (.getByID @registry (.getInt buffer))
                 len (- (.limit buffer) 1 id-size)
                 start (+ (.position buffer)
                          (.arrayOffset buffer))
@@ -84,12 +78,16 @@
 (defrecord AvroSerdeFactory []
   SerdeFactory
   (getSerde [this serde-name config]
-    (reify Serde
-      (fromBytes [this bytes]
-        (.fromBytes (avro-decoder config) bytes))
+    (let [registry (let [build-registry (-> (get config "confluent.schema.registry.factory")
+                                            (read-string)
+                                            (eval))]
+                     (build-registry config))]
+      (reify Serde
+        (fromBytes [this bytes]
+          (.fromBytes (avro-decoder registry config) bytes))
 
-      (toBytes [this msg]
-        (.toBytes (avro-encoder config) msg)))))
+        (toBytes [this msg]
+          (.toBytes (avro-encoder registry config) msg))))))
 
 (defrecord UUIDSerdeFactory []
   SerdeFactory
