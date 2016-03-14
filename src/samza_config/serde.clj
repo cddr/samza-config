@@ -47,7 +47,6 @@
                   (.writeByte magic)
                   (.writeInt version)
                   (.flush))
-                (println "encoding: " object)
                 (a/encode schema out object)
                 (.toByteArray out))))))))
 
@@ -79,7 +78,6 @@
 (defrecord AvroSerdeFactory []
   SerdeFactory
   (getSerde [this serde-name config]
-    (println config)
     (let [registry (let [build-registry (-> (get config "confluent.schema.registry.factory")
                                             (read-string)
                                             (eval))]

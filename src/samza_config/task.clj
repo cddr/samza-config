@@ -11,14 +11,12 @@
                 org.apache.samza.task.StreamTask]))
 
 (defn handle-exception [e state]
-  (println e)
-  (println state))
+  )
 
 (defn -clojure-init []
   [[] (atom {})])
 
 (defn -init [this config context]
-  (println "Initializing task: " this config context)
   (let [task-factory (-> (.get config "job.task.factory")
                          read-string
                          eval)]

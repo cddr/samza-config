@@ -95,9 +95,6 @@
     (let [config (samza-config (mock-config job-config))
           context (mock-task-context job-config)]
 
-      (doseq [[k v] (into (sorted-map) config)]
-        (println (format "  %s = %s" k v)))
-
       (task-factory config context))))
 
 (defn key-serde [job-config system stream]
