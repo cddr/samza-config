@@ -116,8 +116,14 @@
       (.getSerde serde-name (samza-config job-config))))
 
 (defn roundtrip [msg serde]
-  (let [as-bytes (.toBytes serde msg)]
-    (.fromBytes serde as-bytes)))
+  (try
+    (let [as-bytes (.toBytes serde msg)]
+      (.fromBytes serde as-bytes))
+    (catch Exception e
+      (ex-info "Tried but failed to roundtrip message"
+               {:cause e
+                :message msg
+                :serde serde}))))
 
 (defn test-system [job-configs]
   (let [offsets        (atom {})
