@@ -47,6 +47,7 @@
                   (.writeByte magic)
                   (.writeInt version)
                   (.flush))
+                (println "encoding: " object)
                 (a/encode schema out object)
                 (.toByteArray out))))))))
 
@@ -56,7 +57,7 @@
       (when-let [buffer (and bs (java.nio.ByteBuffer/wrap bs))]
         (if-not (= (.get buffer) magic)
           (throw (ex-info "Unknown magic byte" {:bytes bs}))
-          (let [schema (.getByID @registry (.getInt buffer))
+          (let [schema (.getByID registry (.getInt buffer))
                 len (- (.limit buffer) 1 id-size)
                 start (+ (.position buffer)
                          (.arrayOffset buffer))
@@ -78,6 +79,7 @@
 (defrecord AvroSerdeFactory []
   SerdeFactory
   (getSerde [this serde-name config]
+    (println config)
     (let [registry (let [build-registry (-> (get config "confluent.schema.registry.factory")
                                             (read-string)
                                             (eval))]

@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as str]
    [samza-config.core :refer [*samza-system-name* *samza-stream-name*]]
+   [samza-config.serde :refer [local-registry-client]]
    [samza-config.job :refer [samza-config]])
   (:import
    [io.confluent.kafka.schemaregistry.client LocalSchemaRegistryClient]
@@ -14,7 +15,7 @@
 
 (defprotocol TestSystem
   (input [this system topic message])
-  (output [this topic])
+  (output [this])
   (trigger-window [this]))
 
 (defn mock-collector [output]
@@ -22,7 +23,7 @@
     (send [this envelope]
       (swap! output update-in
              [(-> envelope .getSystemStream .getStream)]
-             conj
+             (fnil conj [])
              (.getMessage envelope)))))
 
 (defn mock-kv-store []
@@ -67,6 +68,11 @@
     (commit [this scope])
     (shutdown [this scope])))
 
+(defn mock-config [config]
+  (assoc-in config [:confluent :schema :registry :factory]
+            (str #'local-registry-client)))
+
+
 (defn mock-task-context [job-config]
   (let [stores (->> (:stores job-config)
                     (map (fn [[store-name store-serdes]]
@@ -86,10 +92,9 @@
   (let [task-factory (-> (get-in job-config [:job :task :factory])
                          read-string
                          eval)]
-    (let [config (samza-config job-config)
+    (let [config (samza-config (mock-config job-config))
           context (mock-task-context job-config)]
 
-      (println "build-task: ")
       (doseq [[k v] (into (sorted-map) config)]
         (println (format "  %s = %s" k v)))
 
@@ -119,7 +124,7 @@
         output         (atom {})
         collector      (mock-collector output)
         coordinator    (mock-coordinator)
-        job-tasks      (mapv (juxt identity build-task) job-configs)]
+        job-tasks      (mapv (juxt mock-config build-task) job-configs)]
 
     (reify TestSystem
       (input [this system topic message]
@@ -127,17 +132,16 @@
 
         (let [envelope (fn [msg key-serde msg-serde]
                          (IncomingMessageEnvelope.
-                          (SystemStreamPartition. (str system) topic (Partition. 1))
+                          (SystemStreamPartition. (str system) (name topic) (Partition. 1))
                           (str (get @offsets topic))
                           (roundtrip (:id msg) key-serde)
                           (roundtrip msg msg-serde)))]
 
           (doseq [[job task] job-tasks]
-            (let [key-serde (mock-serde job (key-serde job system topic))
-                  msg-serde (mock-serde job (msg-serde job system topic))]
-              (binding [*samza-system-name* system
-                        *samza-stream-name* topic]
-
+            (binding [*samza-system-name* (str (name system))
+                      *samza-stream-name* (str (name topic))]
+              (let [key-serde (mock-serde job (key-serde job system topic))
+                    msg-serde (mock-serde job (msg-serde job system topic))]
                 (.process task (envelope message
                                          key-serde
                                          msg-serde)
@@ -148,5 +152,5 @@
         (doseq [[_ task] job-tasks]
           (.window task collector coordinator)))
 
-      (output [this topic]
-        (get @output topic)))))
+      (output [this]
+        @output))))
