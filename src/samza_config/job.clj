@@ -71,7 +71,7 @@
 
 (defn job-coordinator [system replication-factor]
   {:system "kafka"
-   :replication {:factor "1"}})
+   :replication {:factor replication-factor}})
 
 (defn local-stores [& stores]
   (apply hash-map (mapcat identity stores)))
