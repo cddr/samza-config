@@ -7,7 +7,7 @@
    [environ.core :refer [env]]
    [clojure.java.io :as io :refer [file]]
    [clojure.string :as str]
-   [samza-config.serde])
+   [samza-config.serde :as serde])
   (:import
    [samza_config.serde AvroSerdeFactory UUIDSerdeFactory EDNSerdeFactory]
    [io.confluent.kafka.schemaregistry.client CachedSchemaRegistryClient]
@@ -107,7 +107,8 @@
   {:schema
    {:resolver (env :schema-resolver)
     :registry (merge {:url (env :schema-registry-url)
-                      :factory (env :schema-registry-factory)})}})
+                      :factory (or (env :schema-registry-factory)
+                                   (str #'serde/registry-client))})}})
 
 (defn samza-config [job]
   (let [propertize-keys (fn [[path value]]
