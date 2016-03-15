@@ -60,10 +60,8 @@
    {:key {:serde (name key-serde)}
     :msg {:serde (name msg-serde)}}])
 
-(def ^:dynamic *system*)
-
 (defn task-inputs [& inputs]
-  (str/join "," (map #(str *system* "." %) inputs)))
+  (str/join "," (map #(str "kafka." %) inputs)))
 
 (defn zookeeper-config [env]
   {:zookeeper {:connect (:zookeeper-address env)}})
@@ -89,6 +87,11 @@
   [(keyword stream-name)
    {:samza {:key {:serde (name key-serde)}
             :msg {:serde (name msg-serde)}}}])
+
+(def output-stream
+  "This is here so jobs are more self-documenting but as far as the job config
+   goes, an output stream is precisely the same as input stream"
+  input-stream)
 
 (defn kafka-system
   [env & streams]
@@ -127,7 +130,6 @@
      :serializers
      "
   [job-sym version & body]
-  `(binding [*system* ~(str job-sym)]
-     (def ~job-sym (merge-with merge
-                                {:job {:name ~(job-name job-sym)}}
-                                (hash-map ~@body)))))
+  `(def ~job-sym (merge-with merge
+                             {:job {:name ~(job-name job-sym)}}
+                             (hash-map ~@body))))

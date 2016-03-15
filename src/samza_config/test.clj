@@ -18,13 +18,15 @@
   (output [this])
   (trigger-window [this]))
 
-(defn mock-collector [output]
-  (reify MessageCollector
-    (send [this envelope]
-      (swap! output update-in
-             [(-> envelope .getSystemStream .getStream)]
-             (fnil conj [])
-             (.getMessage envelope)))))
+(defn roundtrip [msg serde]
+  (try
+    (let [as-bytes (.toBytes serde msg)]
+      (.fromBytes serde as-bytes))
+    (catch Exception e
+      (throw (ex-info "Tried but failed to roundtrip message"
+                      {:cause e
+                       :message msg
+                       :serde serde})))))
 
 (defn mock-kv-store []
   (let [store (atom {})]
@@ -99,13 +101,11 @@
 
 (defn key-serde [job-config system stream]
   (or (get-in job-config [:systems (keyword system) :streams (keyword stream) :samza :key :serde])
-      (get-in job-config [:systems (keyword system) :samza :key :serde])
-      (throw (ex-info (str "No key-serde found for " system " and " stream) {:config job-config}))))
+      (get-in job-config [:systems (keyword system) :samza :key :serde])))
 
 (defn msg-serde [job-config system stream]
   (or (get-in job-config [:systems (keyword system) :streams (keyword stream) :samza :msg :serde])
-      (get-in job-config [:systems (keyword system) :samza :msg :serde])
-      (throw (ex-info (str "No msg-serde found for " system " and " stream) {:config job-config}))))
+      (get-in job-config [:systems (keyword system) :samza :msg :serde])))
 
 (defn mock-serde [job-config serde-name]
   (-> (clojure.lang.Reflector/invokeConstructor
@@ -114,20 +114,24 @@
        (to-array []))
       (.getSerde serde-name (samza-config job-config))))
 
-(defn roundtrip [msg serde]
-  (try
-    (let [as-bytes (.toBytes serde msg)]
-      (.fromBytes serde as-bytes))
-    (catch Exception e
-      (throw (ex-info "Tried but failed to roundtrip message"
-                      {:cause e
-                       :message msg
-                       :serde serde})))))
+(defn mock-collector
+  "This feels a little bit wrong to be sharing a collector between several
+   jobs but given that we are trying to test a bunch of these things together
+   maybe it's not that crazy"
+  [config output]
+  (reify MessageCollector
+    (send [this envelope]
+      (let [topic (-> envelope .getSystemStream .getStream)
+            msg-serde (mock-serde config (msg-serde config "kafka" topic))]
+        (binding [*samza-topic* topic]
+          (swap! output update-in
+                 [topic]
+                 (fnil conj [])
+                 (roundtrip (.getMessage envelope) msg-serde)))))))
 
 (defn test-system [job-configs]
   (let [offsets        (atom {})
         output         (atom {})
-        collector      (mock-collector output)
         coordinator    (mock-coordinator)
         job-tasks      (mapv (juxt mock-config build-task) job-configs)]
 
@@ -138,23 +142,36 @@
         (binding [*samza-topic* topic]
           (let [envelope (fn [msg key-serde msg-serde]
                            (IncomingMessageEnvelope.
-                            (SystemStreamPartition. "test" (name topic) (Partition. 1))
+                            (SystemStreamPartition. "kafka" (name topic) (Partition. 1))
                             (str (get @offsets topic))
                             (roundtrip (:id msg) key-serde)
                             (roundtrip msg msg-serde)))]
 
             (doseq [[job task] job-tasks]
-              (let [key-serde (mock-serde job (key-serde job "kafka" topic))
-                    msg-serde (mock-serde job (msg-serde job "kafka" topic))]
-                (.process task (envelope message
-                                         key-serde
-                                         msg-serde)
-                          collector
-                          coordinator))))))
+              (let [key-serde (some->> (key-serde job "kafka" topic)
+                                       (mock-serde job))
+                    msg-serde (some->> (msg-serde job "kafka" topic)
+                                       (mock-serde job))]
+                (if (and key-serde msg-serde)
+                  ;; There's a risk that the reason we can't find a key-serde or msg-serde
+                  ;; is that the configuration is not set up correctly which might lead to
+                  ;; confusing behaviour (i.e. we would not send that job the input it would
+                  ;; expect). But we also need a way to not send input to jobs that don't
+                  ;; expect it so...
+                  (.process task (envelope message
+                                           key-serde
+                                           msg-serde)
+                            (mock-collector job output)
+                            coordinator)
+                  (println {:msg "Not sending"
+                            :topic topic
+                            :message message
+                            :job job})))))))
+
 
       (trigger-window [this]
-        (doseq [[_ task] job-tasks]
-          (.window task collector coordinator)))
+        (doseq [[job task] job-tasks]
+          (.window task (mock-collector job output) coordinator)))
 
       (output [this]
         @output))))
