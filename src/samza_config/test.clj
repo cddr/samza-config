@@ -1,7 +1,7 @@
 (ns samza-config.test
   (:require
    [clojure.string :as str]
-   [samza-config.core :refer [*samza-system-name* *samza-stream-name*]]
+   [samza-config.core :refer [*samza-topic*]]
    [samza-config.serde :refer [local-registry-client]]
    [samza-config.job :refer [samza-config]])
   (:import
@@ -14,7 +14,7 @@
    [org.apache.samza.system SystemStream SystemStreamPartition IncomingMessageEnvelope]))
 
 (defprotocol TestSystem
-  (input [this system topic message])
+  (input [this topic message])
   (output [this])
   (trigger-window [this]))
 
@@ -98,12 +98,14 @@
       (task-factory config context))))
 
 (defn key-serde [job-config system stream]
-  (or (get-in job-config [:systems system :streams stream :samza :key :serde])
-      (get-in job-config [:systems system :samza :key :serde])))
+  (or (get-in job-config [:systems (keyword system) :streams (keyword stream) :samza :key :serde])
+      (get-in job-config [:systems (keyword system) :samza :key :serde])
+      (throw (ex-info (str "No key-serde found for " system " and " stream) {:config job-config}))))
 
 (defn msg-serde [job-config system stream]
-  (or (get-in job-config [:systems system :streams stream :samza :msg :serde])
-      (get-in job-config [:systems system :samza :msg :serde])))
+  (or (get-in job-config [:systems (keyword system) :streams (keyword stream) :samza :msg :serde])
+      (get-in job-config [:systems (keyword system) :samza :msg :serde])
+      (throw (ex-info (str "No msg-serde found for " system " and " stream) {:config job-config}))))
 
 (defn mock-serde [job-config serde-name]
   (-> (clojure.lang.Reflector/invokeConstructor
@@ -117,10 +119,10 @@
     (let [as-bytes (.toBytes serde msg)]
       (.fromBytes serde as-bytes))
     (catch Exception e
-      (ex-info "Tried but failed to roundtrip message"
-               {:cause e
-                :message msg
-                :serde serde}))))
+      (throw (ex-info "Tried but failed to roundtrip message"
+                      {:cause e
+                       :message msg
+                       :serde serde})))))
 
 (defn test-system [job-configs]
   (let [offsets        (atom {})
@@ -130,21 +132,20 @@
         job-tasks      (mapv (juxt mock-config build-task) job-configs)]
 
     (reify TestSystem
-      (input [this system topic message]
+      (input [this topic message]
         (swap! offsets update-in [topic] (fnil inc 0))
 
-        (let [envelope (fn [msg key-serde msg-serde]
-                         (IncomingMessageEnvelope.
-                          (SystemStreamPartition. (str system) (name topic) (Partition. 1))
-                          (str (get @offsets topic))
-                          (roundtrip (:id msg) key-serde)
-                          (roundtrip msg msg-serde)))]
+        (binding [*samza-topic* topic]
+          (let [envelope (fn [msg key-serde msg-serde]
+                           (IncomingMessageEnvelope.
+                            (SystemStreamPartition. "test" (name topic) (Partition. 1))
+                            (str (get @offsets topic))
+                            (roundtrip (:id msg) key-serde)
+                            (roundtrip msg msg-serde)))]
 
-          (doseq [[job task] job-tasks]
-            (binding [*samza-system-name* (str (name system))
-                      *samza-stream-name* (str (name topic))]
-              (let [key-serde (mock-serde job (key-serde job system topic))
-                    msg-serde (mock-serde job (msg-serde job system topic))]
+            (doseq [[job task] job-tasks]
+              (let [key-serde (mock-serde job (key-serde job "kafka" topic))
+                    msg-serde (mock-serde job (msg-serde job "kafka" topic))]
                 (.process task (envelope message
                                          key-serde
                                          msg-serde)

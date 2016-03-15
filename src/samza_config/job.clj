@@ -85,14 +85,19 @@
     :factory "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory"
     :change-log (str store "-changelog")}])
 
+(defn input-stream [stream-name key-serde msg-serde]
+  [(keyword stream-name)
+   {:samza {:key {:serde (name key-serde)}
+            :msg {:serde (name msg-serde)}}}])
+
 (defn kafka-system
-  [env & [key-serde msg-serde]]
-  (let [samza (cond-> {:factory (.getName KafkaSystemFactory)}
-                key-serde (assoc :key {:serde (name key-serde)})
-                msg-serde (assoc :msg {:serde (name msg-serde)}))]
-    {:samza samza
-     :consumer {:zookeeper {:connect (env :zookeeper-connect)}}
-     :producer {:bootstrap {:servers (env :kafka-brokers)}}}))
+  [env & streams]
+  (let [samza {:factory (.getName KafkaSystemFactory)}
+        sys (cond-> {:samza samza
+                     :consumer {:zookeeper {:connect (env :zookeeper-connect)}}
+                     :producer {:bootstrap {:servers (env :kafka-brokers)}}}
+              streams (assoc :streams (apply hash-map (mapcat identity streams))))]
+    sys))
 
 (defn schema-registry
   [env]

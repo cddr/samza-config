@@ -13,8 +13,7 @@
    [org.apache.samza.task TaskCoordinator$RequestScope]
    [org.apache.samza.system SystemStream OutgoingMessageEnvelope]))
 
-(def ^:dynamic *samza-system-name*)
-(def ^:dynamic *samza-stream-name*)
+(def ^:dynamic *samza-topic*)
 
 (def commit-scopes
   {:task TaskCoordinator$RequestScope/CURRENT_TASK
@@ -32,7 +31,15 @@
 (defn message [envelope]
   (.getMessage envelope))
 
-(defn record
+(defn producer [system topic]
+  (fn [key-fn msg]
+    (binding [*samza-topic* topic]
+      (OutgoingMessageEnvelope.
+       (SystemStream. system (str (name topic)))
+       (key-fn msg)
+       msg))))
+
+#_(defn record
   ([key-fn topic msg]
    (OutgoingMessageEnvelope.
     (SystemStream. *samza-system-name* (str (name topic)))

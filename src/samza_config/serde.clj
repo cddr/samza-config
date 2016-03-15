@@ -1,6 +1,6 @@
 (ns samza-config.serde
   (:require
-   [samza-config.core :refer [*samza-stream-name*]]
+   [samza-config.core :refer [*samza-topic*]]
    [abracad.avro :as a]
    [clojure.string :as str]
    [clojure.edn :as edn]
@@ -32,7 +32,7 @@
   (let [schema (let [find-schema (-> (get config "confluent.schema.resolver")
                                      (read-string)
                                      (eval))]
-                 (find-schema *samza-stream-name*))
+                 (find-schema *samza-topic*))
 
         topic (fn [schema]
                 (str (hyphenate (.getName schema))
@@ -63,17 +63,6 @@
                 decoded (a/decode schema
                                   (a/binary-decoder [(.array buffer) start len]))]
             decoded))))))
-
-(defn avro-producer [config system topic schema-locator]
-  (let [stream (SystemStream. system topic)
-        envelope (fn [stream k v]
-                     (OutgoingMessageEnvelope. stream k v))]
-
-    (fn [collector msg key-fn]
-      (let [k (key-fn msg)
-            v msg]
-        (binding [*samza-stream-name* topic]
-          (.send collector (envelope stream k v)))))))
 
 (defrecord AvroSerdeFactory []
   SerdeFactory
